@@ -2,11 +2,11 @@ html,
 body {
     margin: 0;
     padding: 0;
-    background: #F2F3F5;
 }
 
 body {
     padding: 15px;
+    background: #F2F3F5;
 }
 
 
@@ -88,6 +88,7 @@ body {
     border-radius: 50%;
 }
 
+/* 隐藏文件选择框 */
 #file {
     display: none;
 }

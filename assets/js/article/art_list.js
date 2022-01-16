@@ -1,143 +1,162 @@
-$(function() {
+$(function () {
+
+    //定义一个查询的参数对象，将来请求数据的时候
+    //需要将请求参数，提交到服务器
+
     var query = {
-        pagenum: 1,
-        pagesize: 5
+        pagenum: 1,     //  页码值 默认请求第一页的数据
+        pagesize: 2,    //  每页显示几条数据  默认3条
+        cate_id: '',    //  文章分类的id
+        state: ''       //  文章的发布状态
     }
 
     initArticleList()
-    initFilter()
+    initCate()
 
-    template.defaults.imports.dateFormat = function(date) {
-        var dt = new Date(date)
+    // 定义美化时间的过滤器
+    template.defaults.imports.dataFormat = function (date) {
+        const dt = new Date(date)
 
-        var y = dt.getFullYear()
-        var m = padZero(dt.getMonth() + 1)
-        var d = padZero(dt.getDate())
+        var y = dt.getFullYear()    //获取年份
+        var m = padZero(dt.getMonth() + 1)  //获取月份 默认0-11
+        var d = padZero(dt.getDate())       //获取日
 
-        var hh = padZero(dt.getHours())
-        var mm = padZero(dt.getMinutes())
-        var ss = padZero(dt.getSeconds())
+        var hh = padZero(dt.getHours())    //获取小时
+        var mm = padZero(dt.getMinutes())    //获取分钟
+        var ss = padZero(dt.getSeconds())    //获取秒
 
         return y + '-' + m + '-' + d + ' ' + hh + ':' + mm + ':' + ss
     }
 
+    //定义补零的函数
     function padZero(n) {
         return n > 9 ? n : '0' + n
     }
 
+    //获取文章列表的方法
     function initArticleList() {
         $.ajax({
             method: 'GET',
             url: '/my/article/list',
             data: query,
-            success: function(res) {
+            success: function (res) {
+
                 if (res.status !== 0) {
-                    return layui.layer.msg(res.msg)
+                    return layui.layer.msg('获取文章列表失败！')
                 }
-
+                //使用模板引擎 渲染页面的数据
                 var htmlStr = template('tpl-table', res)
-                $('tbody').html(htmlStr)
 
+                $('tbody').html(htmlStr)
+                //调用渲染分页的方法 total 表示一共有多少篇文章
                 renderPage(res.total)
+
             }
         })
     }
 
-    function initFilter() {
+    //初始化文章分类 的方法
+    function initCate() {
         $.ajax({
             method: 'GET',
             url: '/my/article/cates',
-            success: function(res) {
+            success: function (res) {
                 if (res.status !== 0) {
-                    return layui.layer.msg(res.msg)
+                    return layui.layer.msg('获取分类数据失败！')
                 }
-
-                var htmlStr = template('tpl-filter', res)
+                //调用模板引擎渲染所有分类的分类项
+                var htmlStr = template('tpl-cate', res)
                 $('[name=cate_id]').html(htmlStr)
+
+                //需要使用 layui.form.render（） 将页面重新渲染一下
+                //通知layui 重新渲染表单区域的UI结构
                 layui.form.render()
+
             }
         })
     }
 
-    $('#form-filter').on('submit', function(e) {
-        e.preventDefault()
+    //为筛选表单绑定 submit 事件
+    $('#form-search').on('submit', function (e) {
 
+        e.preventDefault()
+        //拿到表单中选中项的值
         var cate_id = $('[name=cate_id]').val()
         var state = $('[name=state]').val()
 
-        if (cate_id) {
-            query.cate_id = cate_id
-        } else {
-            delete query.cate_id
-        }
+        // 为查询参数对象 query 中对应的属性赋值
+        query.cate_id = cate_id
+        query.state = state
 
-        if (state) {
-            query.state = state
-        } else {
-            delete query.state
-        }
-
+        //根据最新的筛选条件 筛选文章列表
         initArticleList()
     })
 
+    //定义 渲染 分页的方法
     function renderPage(total) {
+        //调用 layui.laypage.render（）来渲染分页结构
         layui.laypage.render({
-            elem: 'pageBox',
-            count: total,
-            limit: query.pagesize,
-            curr: query.pagenum,
+
+            elem: 'pageBox',      //分页容器的Id
+            count: total,          //总数据条数
+            limit: query.pagesize,  //每页显示几条数据
+            curr: query.pagenum,    //默认被选中的分页
             layout: ['count', 'limit', 'prev', 'page', 'next', 'skip'],
-            limits: [2, 3, 5, 10],
-            jump: function(obj, first) {
+            limits: [2, 3, 5, 10, 15],
+            //分页发生切换的时候 ，触发jump回调
+            //触发jump回调 的方式有两种
+            //1.点击页码的时候会触发 jump 回调
+            //2.只要调用了 layui.laypage.render（）就会触发jump回调
+
+            jump: function (obj, first) {
+
+                //把最新的页码值赋值到 query 这个查询参数对象
                 query.pagenum = obj.curr
+                //把最新的条目数赋值到  query 这个查询参数对象中
                 query.pagesize = obj.limit
 
-                /* 注意: jump回调有两种触发方式
-                    1、当点击分页的页码时
-                    2、当layui.laypage.render方法被调用时
-                    如果是2方式触发，则可能出现死循环，initArticleList -> renderPage -> jump -> initArticleLis
-                    所以需要判断jump是否是2触发的，排除该种方式触发产生的initArticleList调用
-                    layui的jump回调函数的第二个参数first就是来提示jump的触发方式，如果first为true，则为2触发，否则为1触发
-                */
+                //根据最新的query获取 对应的数据列表 并渲染表格
                 if (!first) {
                     initArticleList()
                 }
             }
         })
+
+
     }
 
-    $('tbody').on('click', '.btnDelArticle', function(e) {
-        /* 注意：为什么给文章列表按钮定义时使用class，而不是id？
-            因为每条文章列表后面的删除，编辑按钮都是同一个template模板产生的，
-            所以如果使用id的话，就导致所有删除，编辑的按钮的id都相同，会产生id唯一性错误
-            这里刚好需要计数删除按钮个数，来识别页码数据条数，
-            所以没有唯一性要求的class选择器才是最好的
-        */
-        var len = $('.btnDelArticle').length
+    //通过代理的形式 ，为删除按钮绑定点击事件处理函数
+    $('tbody').on('click', '.btn-delete', function (e) {
+        //获取删除按钮的数据
+        var len = $('.btn-delete').length
         var id = $(this).attr('data-id')
 
-        layui.layer.confirm('确认删除?', { icon: 3, title: '提示' }, function(index) {
+        //询问用户是否要删除文章
+        layui.layer.confirm('确定要删除文章吗？', { icon: 3, title: '提示' }, function (index) {
+
             $.ajax({
                 method: 'GET',
-                url: `/my/article/delete/${id}`,
-                success: function(res) {
+                url: '/my/article/delete/' + id,
+                success: function (res) {
                     if (res.status !== 0) {
-                        return layui.layer.msg(res.msg)
+                        return layui.layer.msg('删除文章失败！')
                     }
+                    layui.layer.msg('删除文章成功！')
 
+
+                    //当数据删除完成后，需要判断这一页是否还有数据
+                    //如果没有剩余的数据了，则让页码减一在渲染列表数据
                     if (len === 1) {
+                        //如果len的值等于1 证明删除完后，页面上已经没有数据了需要把页码减一
+                        //页码值最小要为1
                         query.pagenum = query.pagenum === 1 ? 1 : query.pagenum - 1
                     }
-
                     initArticleList()
                 }
             })
-            layui.layer.close(index)
-        })
+
+            layer.close(index);
+        });
     })
 
-    $('tbody').on('click', '.btnEditArticle', function(e) {
-        var id = $(this).attr('data-id')
-        location.href = `/article/art_pub.html?id=${id}`
-    })
 })
